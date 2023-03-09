@@ -8,6 +8,7 @@
 # 4. Enter argument into program arguments textbox
 # 5. Run!
 
+# ===== MACRO DEFINITIONS =======
 .macro push(%t)
   addi sp sp -4
   sw %t (sp)
@@ -44,39 +45,47 @@ newline:    .asciz "\n"
 
 .text
 
-# === REGISTERS USED ===
-# t0: Program arguments array
-# t1: Running sum
-# t2: Current character
-# t3: Next character
-# s0: Running sum
-
 # ===== PROGRAM START ======
 main:
   # Program argument array stored in a1 on startup
   mv t0 a1
 
-  # Print it
+  # Print user argument
   print_str(youEntered)
   lw a0 (t0)
   li a7 4
   ecall
   
-  # Replace it
+  # t0 = input string
   lw t0 (t0)
 
   # Init running sum
   li s0 0
 
 # ======= CONVERSION TO INTEGER ==========
+# for every char:
+#   if current char < next char:
+#     add to running sum
+#   else:
+#     sub from running sum
+#   if running sum ever goes negative:
+#     invalid input received
+
+# == REGISTERS USED ==
+# t0: Program arguments array
+# t1: Running sum
+# t2: Current character
+# t3: Next character
+# s0: Running sum
+
 charLoop:
   # Check if running sum is invalid
   # (If it ever goes negative, it's invalid)
   blez s0 invalidArgument
 
-  lbu t2 0(t0)
+  lbu t2 0(t0) # Current char
   beqz t2 charLoopExit
-  lbu t3 1(t0)
+  lbu t3 1(t0) # Next char
   addi t0 t0 1
 
   # Convert current
@@ -91,12 +100,12 @@ charLoop:
 
   bge t2 t3 currentGreaterOrEquals
 
-  # If current is less, sub from running sum
+  # If current < next, sub from running sum
   currentLessThan:
     sub s0 s0 t2
     b charLoop
 
-  # If current is greater, add to running sum
+  # If current >= next, add to running sum
   currentGreaterOrEquals:
     add s0 s0 t2
     b charLoop
@@ -158,7 +167,7 @@ exitProgram:
 
 # Subroutine to convert a single roman numeral to integer.
 # Arguments:
-#   a0: Character to convert.
+#   a0: Character to convert
 # Return values:
 #   a0: Converted integer
 convertChar:
