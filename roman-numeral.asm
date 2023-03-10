@@ -76,19 +76,21 @@ main:
 # t1: Running sum
 # t2: Current character
 # t3: Next character
-# t4: Tmp/Subtractive group flag
+# t4: Subtractive group flag
+# t5: Last number added
 # s0: Running sum
 
 charLoop:
   lbu t2 0(t0) # Current char
   beqz t2 charLoopExit
 
-  # Subtractive flag
+  # Handle subtractive flag
   beqz t4 getNextChar
   li t4 0
+  li t5 5000
   addi t0 t0 1
   b charLoop
-
+  
   getNextChar:
   lbu t3 1(t0) # Next char
   addi t0 t0 1
@@ -119,10 +121,19 @@ charLoop:
   pop(t1)
   pop(t0)
 
-  # If it is valid, calculate subtractive value and add
+  # If it is valid, calculate subtractive value
   sub t4 t3 t2
+
+  # A numeral of lesser value may not come before a subtractive group of higher value
+  # Last numeral added is in t5
+  blt t4 t5 validBeforeSubtractive
+  b invalidArgument
+
+  # If valid, continue
+  validBeforeSubtractive:
+  li t5 0
   add s0 s0 t4
-  li t4 1 # set subtractive flag
+  li t4 1
   b charLoop
 
   updateRunningSum:
@@ -131,11 +142,13 @@ charLoop:
   # If current < next, sub from running sum
   currentLessThan:
     sub s0 s0 t2
+    mv t5 t2
     b charLoop
 
   # If current >= next, add to running sum
   currentGreaterOrEquals:
     add s0 s0 t2
+    mv t5 t2
     b charLoop
 
 charLoopExit:
@@ -195,7 +208,7 @@ exitProgram:
 
 # Subroutine to check if valid group of roman numerals
 # The only allowed groups are:
-# IV, IX, XL, XC, CD, CM, M(V), M(X), (X)(L), (X)(C), (C)(D), (C)(M)
+# IV, IX, XL, XC, CD
 # Arguments:
 # a0: First char
 # a1: Second char
