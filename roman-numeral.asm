@@ -76,15 +76,20 @@ main:
 # t1: Running sum
 # t2: Current character
 # t3: Next character
+# t4: Tmp/Subtractive group flag
 # s0: Running sum
 
 charLoop:
-  # Check if running sum is invalid
-  # (If it ever goes negative, it's invalid)
-  blez s0 invalidArgument
-
   lbu t2 0(t0) # Current char
   beqz t2 charLoopExit
+
+  # Subtractive flag
+  beqz t4 getNextChar
+  li t4 0
+  addi t0 t0 1
+  b charLoop
+
+  getNextChar:
   lbu t3 1(t0) # Next char
   addi t0 t0 1
 
@@ -98,6 +103,29 @@ charLoop:
   jal convertChar
   mv t3 a0
 
+  # If not subtractive group, skip
+  bge t2 t3 updateRunningSum
+ 
+  # If it is a subtractive group, check if valid
+  push(t0)
+  push(t1)
+  push(t2)
+  push(t3)
+  mv a0 t2
+  mv a1 t3
+  jal checkValidSubtractive
+  pop(t3)
+  pop(t2)
+  pop(t1)
+  pop(t0)
+
+  # If it is valid, calculate subtractive value and add
+  sub t4 t3 t2
+  add s0 s0 t4
+  li t4 1 # set subtractive flag
+  b charLoop
+
+  updateRunningSum:
   bge t2 t3 currentGreaterOrEquals
 
   # If current < next, sub from running sum
@@ -164,6 +192,45 @@ printBinaryLoop:
 exitProgram:
   print_str(newline)
   exit
+
+# Subroutine to check if valid group of roman numerals
+# The only allowed groups are:
+# IV, IX, XL, XC, CD, CM, M(V), M(X), (X)(L), (X)(C), (C)(D), (C)(M)
+# Arguments:
+# a0: First char
+# a1: Second char
+checkValidSubtractive:
+  li t0 1 # I
+  beq a0 t0 checkValidSubtractive_I
+  li t0 10 # X
+  beq a0 t0 checkValidSubtractive_X
+  li t0 100 # C
+  beq a0 t0 checkValidSubtractive_C
+
+  # IV or IX
+  checkValidSubtractive_I:
+    li t0 5 # V
+    beq a1 t0 checkValidSubtractiveEnd
+    li t0 10 # X
+    beq a1 t0 checkValidSubtractiveEnd
+    b invalidArgument
+
+  # XL XC
+  checkValidSubtractive_X:
+    li t0 50 # L
+    beq a1 t0 checkValidSubtractiveEnd
+    li t0 100 # C
+    beq a1 t0 checkValidSubtractiveEnd
+    b invalidArgument
+  
+  # CD
+  checkValidSubtractive_C:
+    li t0 100 # C
+    beq a1 t0 checkValidSubtractiveEnd
+    b invalidArgument
+
+  checkValidSubtractiveEnd:
+  ret
 
 # Subroutine to convert a single roman numeral to integer.
 # Arguments:
