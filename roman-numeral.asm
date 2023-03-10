@@ -59,9 +59,6 @@ main:
   # t0 = input string
   lw t0 (t0)
 
-  # Init running sum
-  li s0 0
-
 # ======= CONVERSION TO INTEGER ==========
 # for every char:
 #   if current char < next char:
@@ -78,16 +75,24 @@ main:
 # t3: Next character
 # t4: Subtractive group flag
 # t5: Last number added
+# t6: Repeated numeral counter
 # s0: Running sum
+
+# Initialization
+li s0 0
+li t5 0
+li t6 0
 
 charLoop:
   lbu t2 0(t0) # Current char
   beqz t2 charLoopExit
 
-  # Handle subtractive flag
+  # If subtractive flag is set, then current+next chars were
+  # handled *together* in the last iteration, so increment one
+  # more time to get to next character
   beqz t4 getNextChar
   li t4 0
-  li t5 5000
+  li t5 5000 # arbitary large number
   addi t0 t0 1
   b charLoop
   
@@ -105,6 +110,23 @@ charLoop:
   jal convertChar
   mv t3 a0
 
+  # Check for repeated numerals
+  bne t2 t3 charsNotEqual
+
+  charsAreEqual:
+  addi t6 t6 1
+
+  # If number of repeats > 3, it's non-minimized (invalid)
+  push(t6)
+  addi t6 t6 -2
+  bgtz t6 invalidArgument
+  pop(t6)
+  b handleSubtractiveGroups
+
+  charsNotEqual:
+  li t6 0 # Reset repeat counter
+
+  handleSubtractiveGroups:
   # If not subtractive group, skip
   bge t2 t3 updateRunningSum
  
